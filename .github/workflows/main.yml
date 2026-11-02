@@ -1,1 +1,50 @@
+name: Build nRF52811 tag firmware
 
+on:
+  push:
+    branches: [slideshow]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Show binaries committed in the repository
+        run: |
+          ls -l *.bin tag_fw/*.bin 2>/dev/null || true
+          sha256sum *.bin tag_fw/*.bin 2>/dev/null || true
+
+      - name: Install PlatformIO and intelhex
+        run: pip install --upgrade platformio intelhex
+
+      - name: Build Newton_M3_Universal
+        run: |
+          cd tag_fw
+          pio run --environment Newton_M3_Universal
+
+      - name: Show build outputs
+        run: |
+          find . -path ./.git -prune -o \( -name "*.bin" -o -name "*.hex" \) -newer tag_fw/platformio.ini -print | head -30
+          ls -l *.bin tag_fw/*.bin 2>/dev/null || true
+          sha256sum *.bin tag_fw/*.bin 2>/dev/null || true
+
+      - name: Upload firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: nrf52811-firmware
+          retention-days: 30
+          if-no-files-found: warn
+          path: |
+            tag_fw/*.bin
+            tag_fw/.pio/build/*/firmware.*
+            *.bin
